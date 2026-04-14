@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmergencyMesh | Command Center</title>
+    <meta name="description" content="EmergencyMesh Acil Durum Yönetim ve Sevk Sistemi - Komuta Merkezi">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- TOAST CONTAINER -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- DETAIL MODAL -->
+    <div class="modal-overlay" id="detail-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Vaka Detayı</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-map-mini" id="modal-mini-map"></div>
+            <div class="modal-grid" id="modal-body"></div>
+            <div class="modal-actions" id="modal-actions"></div>
+        </div>
+    </div>
+
+    <!-- ASSIGN MODAL -->
+    <div class="modal-overlay" id="assign-modal">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h2 id="assign-modal-title">🚑 Ekip Seç</h2>
+                <button class="modal-close" onclick="closeAssignModal()">&times;</button>
+            </div>
+            <div id="assign-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- ADD TEAM MODAL -->
+    <div class="modal-overlay" id="add-team-modal">
+        <div class="modal-content" style="max-width:480px;">
+            <div class="modal-header">
+                <h2>➕ Yeni Saha Ekibi Ekle</h2>
+                <button class="modal-close" onclick="closeAddTeamModal()">&times;</button>
+            </div>
+            <div style="padding: 0.5rem 0;">
+                <form id="add-team-form" onsubmit="submitNewTeam(event)">
+                    <div class="form-group">
+                        <label for="team-name">Ekip Adı</label>
+                        <input type="text" id="team-name" required placeholder="Örn: AFAD 1. Bölge Arama Kurtarma"
+                            class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="team-type">Birim Türü</label>
+                        <select id="team-type" required class="form-input">
+                            <option value="RESCUE_TEAM">Arama Kurtarma Ekipleri</option>
+                            <option value="AMBULANCE">Ambulans / Sağlık</option>
+                            <option value="FIRE_TRUCK">İtfaiye</option>
+                            <option value="POLICE_CAR">Polis / Asayiş</option>
+                            <option value="OTHER">Diğer</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="team-city">İl</label>
+                            <input type="text" id="team-city" placeholder="Örn: İstanbul" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label for="team-district">İlçe</label>
+                            <input type="text" id="team-district" placeholder="Örn: Kadıköy" class="form-input">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="team-status">Başlangıç Durumu</label>
+                        <select id="team-status" required class="form-input">
+                            <option value="AVAILABLE">Uygun (Müsait)</option>
+                            <option value="BUSY">Görevde (Meşgul)</option>
+                            <option value="OFFLINE">Çevrimdışı</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 0.5rem;">Ekibi
+                        Kaydet</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="logo-container">
+            <i data-lucide="shield-alert" class="logo-icon" style="color: #3b82f6;"></i>
+            <span class="logo-text">EmergencyMesh</span>
+        </div>
+        <nav>
+            <ul class="nav-links">
+                <li class="nav-item active" data-view="dashboard">
+                    <i data-lucide="layout-dashboard"></i><span>Panel Özeti</span>
+                </li>
+                <li class="nav-item" data-view="map">
+                    <i data-lucide="map"></i><span>Canlı Harita</span>
+                </li>
+                <li class="nav-item" data-view="responders">
+                    <i data-lucide="truck"></i><span>Saha Ekipleri</span>
+                </li>
+                <li class="nav-item" data-view="requests">
+                    <i data-lucide="alert-circle"></i><span>Talepler</span>
+                </li>
+                <li class="nav-item" data-view="users">
+                    <i data-lucide="users"></i><span>Kullanıcılar</span>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-layout">
+
+        <!-- TICKER -->
+        <div class="incident-ticker">
+            <div class="ticker-label">CANLI AKIŞ</div>
+            <div class="ticker-content" id="incident-ticker">Sistem aktif. Yeni vakalar bekleniyor...</div>
+        </div>
+
+        <!-- HEADER -->
+        <header class="header">
+            <div>
+                <h1 id="view-title">Command Center</h1>
+                <p id="view-subtitle" style="color: var(--text-dim); margin-top: 4px;">Gelişmiş Acil Durum Analiz ve
+                    Sevk Sistemi</p>
+            </div>
+            <div>
+                <span id="system-clock">00:00:00</span>
+            </div>
+        </header>
+
+        <!-- ═══ DASHBOARD ═══ -->
+        <div id="section-dashboard">
+            <section class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Aktif Vakalar</div>
+                    <div class="stat-value" id="stat-active">0</div>
+                    <div class="stat-trend">Canlı Takip</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Toplam Kullanıcı</div>
+                    <div class="stat-value" id="stat-users">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Ekipler (Aktif / Toplam)</div>
+                    <div class="stat-value" id="stat-responders">0 / 0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Çözülmüş Vakalar</div>
+                    <div class="stat-value" id="stat-resolved" style="color: var(--primary);">0</div>
+                </div>
+            </section>
+
+            <div class="analytics-grid">
+                <div class="data-card chart-card">
+                    <h3>Vaka Yoğunluk Analizi / Saat</h3>
+                    <div class="chart-container">
+                        <canvas id="peakHourChart"></canvas>
+                    </div>
+                </div>
+                <div class="data-card chart-card">
+                    <h3>Öncelik Dağılımı</h3>
+                    <div class="chart-container">
+                        <canvas id="priorityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTIVITY FEED -->
+            <div class="data-card activity-feed">
+                <h3>📡 Son Olaylar</h3>
+                <ul class="feed-list" id="activity-feed"></ul>
+            </div>
+        </div>
+
+        <!-- ═══ MAP ═══ -->
+        <div id="section-map" style="display: none;">
+            <!-- Stats Overlay (top-left) -->
+            <div class="map-stats-overlay">
+                <div class="map-stat-pill">
+                    <span class="dot red"></span>
+                    <span class="value" id="map-stat-active">0</span>
+                    <span class="label">Aktif</span>
+                </div>
+                <div class="map-stat-pill">
+                    <span class="dot green"></span>
+                    <span class="value" id="map-stat-responders">0</span>
+                    <span class="label">Ekip</span>
+                </div>
+                <div class="map-stat-pill">
+                    <span class="dot blue"></span>
+                    <span class="value" id="map-stat-resolved">0</span>
+                    <span class="label">Çözülen</span>
+                </div>
+            </div>
+
+            <!-- Controls (top-right) -->
+            <div class="map-controls">
+                <button class="btn btn-secondary" id="toggle-heatmap">Isı Haritası: Kapalı</button>
+                <button class="btn btn-secondary active" id="toggle-emergencies">Acil Durumlar: Açık</button>
+                <button class="btn btn-secondary active" id="toggle-responders">Ekipleri Göster</button>
+                <button class="btn btn-secondary" id="btn-fit-bounds">📍 Tümünü Göster</button>
+                <button class="btn btn-secondary" id="btn-map-style">🗺️ Harita Stili</button>
+                <button class="btn btn-secondary" id="btn-export-csv">📤 CSV İndir</button>
+            </div>
+
+            <!-- Filter Bar (bottom-right) -->
+            <div class="map-filter-bar">
+                <div class="filter-group" id="status-filters">
+                    <button class="filter-btn active" data-status="ALL">Tümü</button>
+                    <button class="filter-btn" data-status="PENDING">Bekleyen</button>
+                    <button class="filter-btn" data-status="IN_PROGRESS">Devam Eden</button>
+                    <button class="filter-btn" data-status="RESOLVED">Çözülen</button>
+                </div>
+                <div class="filter-group" id="type-filters">
+                    <button class="filter-btn active" data-type="ALL">Tümü</button>
+                    <button class="filter-btn" data-type="MEDICAL">🏥 Tıbbi</button>
+                    <button class="filter-btn" data-type="FIRE">🔥 Yangın</button>
+                    <button class="filter-btn" data-type="POLICE">🚔 Polis</button>
+                    <button class="filter-btn" data-type="ACCIDENT">💥 Kaza</button>
+                </div>
+            </div>
+
+            <!-- Legend (bottom-left) -->
+            <div class="map-legend">
+                <h4>Harita Efsanesi</h4>
+                <div class="legend-item"><span class="legend-dot" style="background:#ef4444;"></span> Acil (Emergency)
+                </div>
+                <div class="legend-item"><span class="legend-dot" style="background:#f97316;"></span> Yüksek (High)
+                </div>
+                <div class="legend-item"><span class="legend-dot" style="background:#f59e0b;"></span> Orta (Medium)
+                </div>
+                <div class="legend-item"><span class="legend-dot" style="background:#10b981;"></span> Düşük (Low)</div>
+                <div class="legend-item"><span class="legend-dot" style="background:#3b82f6;"></span> Çözülmüş</div>
+                <div class="legend-separator"></div>
+                <div class="legend-item"><span class="legend-dot" style="background:#10b981; border-color:#fff;"></span>
+                    Ekip — Müsait</div>
+                <div class="legend-item"><span class="legend-dot" style="background:#f59e0b; border-color:#fff;"></span>
+                    Ekip — Meşgul</div>
+            </div>
+
+            <div class="map-container" id="map"></div>
+        </div>
+
+        <!-- ═══ RESPONDERS ═══ -->
+        <div id="section-responders" style="display: none;">
+            <div class="responder-toolbar">
+                <div class="responder-stats-bar">
+                    <div class="res-stat">
+                        <span class="res-stat-label">Toplam Ekip</span>
+                        <span class="res-stat-value" id="res-total-count">0</span>
+                    </div>
+                    <div class="res-stat">
+                        <span class="res-stat-label">Müsait</span>
+                        <span class="res-stat-value text-success" id="res-available-count">0</span>
+                    </div>
+                    <div class="res-stat">
+                        <span class="res-stat-label">Görevde</span>
+                        <span class="res-stat-value text-warning" id="res-busy-count">0</span>
+                    </div>
+                    <div class="res-stat">
+                        <span class="res-stat-label">Çevrimdışı</span>
+                        <span class="res-stat-value text-dim" id="res-offline-count">0</span>
+                    </div>
+                </div>
+
+                <div class="responder-controls">
+                    <div class="search-wrapper">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="responder-search" placeholder="Ekip ara...">
+                    </div>
+                    <select id="responder-filter-status" class="dashboard-filter">
+                        <option value="ALL">Tüm Durumlar</option>
+                        <option value="AVAILABLE">Müsait</option>
+                        <option value="BUSY">Meşgul</option>
+                        <option value="OFFLINE">Çevrimdışı</option>
+                    </select>
+                    <select id="responder-filter-type" class="dashboard-filter">
+                        <option value="ALL">Tüm Birimler</option>
+                        <option value="RESCUE_TEAM">Arama Kurtarma</option>
+                        <option value="AMBULANCE">Ambulans</option>
+                        <option value="FIRE_TRUCK">İtfaiye</option>
+                        <option value="POLICE_CAR">Polis</option>
+                        <option value="OTHER">Diğer</option>
+                    </select>
+                    <button class="btn btn-primary" id="btn-open-add-team">
+                        <i data-lucide="plus-circle"></i> Yeni Ekip
+                    </button>
+                </div>
+            </div>
+
+            <div class="responder-grid" id="responders-grid">
+                <!-- Cards will be injected here -->
+                <div class="loading-placeholder">Ekipler yükleniyor...</div>
+            </div>
+        </div>
+
+        <!-- ═══ REQUESTS ═══ -->
+        <div id="section-requests" style="display: none;">
+            <div class="data-card">
+                <div class="card-header"
+                    style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <h2>Tüm Müdahale Talepleri</h2>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="filter-search" class="dashboard-filter"
+                            placeholder="İsim, Açıklama, ID..." style="min-width: 180px;">
+
+                        <select id="filter-priority" class="dashboard-filter">
+                            <option value="ALL">Tüm Öncelikler</option>
+                            <option value="EMERGENCY">🚨 ACİL (Kritik)</option>
+                            <option value="HIGH">🔴 Yüksek</option>
+                            <option value="MEDIUM">🟡 Orta</option>
+                            <option value="LOW">🔵 Düşük</option>
+                        </select>
+
+                        <select id="filter-time" class="dashboard-filter">
+                            <option value="ALL">Tüm Zamanlar</option>
+                            <option value="1H">Son 1 Saat</option>
+                            <option value="24H">Son 24 Saat</option>
+                        </select>
+
+                        <button class="btn btn-primary" id="refresh-btn">Yenile</button>
+                        <button class="btn btn-secondary" id="test-emergency-btn">Sanal Vaka Oluştur</button>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Öncelik</th>
+                            <th>Tür</th>
+                            <th>Kullanıcı</th>
+                            <th>Açıklama</th>
+                            <th>Durum</th>
+                            <th>Süre</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="requests-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ═══ USERS ═══ -->
+        <div id="section-users" style="display: none;">
+            <div class="data-card">
+                <div class="card-header">
+                    <h2>Kayıtlı Kullanıcılar</h2>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Ad</th>
+                            <th>Soyad</th>
+                            <th>Telefon</th>
+                            <th>Bölge</th>
+                            <th>Kayıt</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/heatmap.js@2.0.5/build/heatmap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-heatmap@1.0.0/leaflet-heatmap.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="admin.js?v=2"></script>
+</body>
+
+</html>

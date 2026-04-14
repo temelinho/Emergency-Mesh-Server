@@ -1,0 +1,52 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_URL=jdbc:postgresql://db:5432/emergencymesh?useUnicode=true&characterEncoding=UTF-8
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - SHOW_SQL=false
+      - CORS_ORIGINS=*
+      - AI_SERVICE_URL=http://ai_service:8030/predict
+    depends_on:
+      db:
+        condition: service_healthy
+      ai_service:
+        condition: service_started
+    networks:
+      - mesh-network
+
+  ai_service:
+    build:
+      context: ./ai-service
+    ports:
+      - "8030:8030"
+    networks:
+      - mesh-network
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=emergencymesh
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    ports:
+      - "5433:5432" # Burayı 5433 yaptık
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mesh-network
+
+networks:
+  mesh-network:
+    driver: bridge
+
+volumes:
+  db-data:
