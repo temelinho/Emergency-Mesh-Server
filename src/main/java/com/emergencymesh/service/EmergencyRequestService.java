@@ -116,10 +116,19 @@ public class EmergencyRequestService {
         
         com.emergencymesh.model.Responder responder = responderService.getResponderEntityById(responderId);
         
+        if (responder.getStatus() != com.emergencymesh.model.Responder.ResponderStatus.AVAILABLE) {
+            throw new RuntimeException("Seçilen ekip şu anda müsait değil (BUSY)!");
+        }
+        
+        // Eğer bu talebe önceden başka bir ekip atanmışsa, onu boşa çıkar
+        if (request.getAssignedResponder() != null) {
+            responderService.updateStatus(request.getAssignedResponder().getId(), com.emergencymesh.model.Responder.ResponderStatus.AVAILABLE);
+        }
+        
         request.setAssignedResponder(responder);
         request.setStatus(EmergencyRequest.RequestStatus.IN_PROGRESS);
         
-        // Mark responder as BUSY
+        // Mark new responder as BUSY
         responderService.updateStatus(responderId, com.emergencymesh.model.Responder.ResponderStatus.BUSY);
         
         EmergencyRequest saved = repository.save(request);

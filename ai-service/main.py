@@ -70,26 +70,42 @@ class Message(BaseModel):
 # Anahtar kelime tabanlı acil durum tespiti (ML'den önce çalışır)
 
 EMERGENCY_KEYWORDS = {
-    # EMERGENCY (3) - Hayati tehlike, enkaz, göçük
+    # EMERGENCY (3) - Hayati tehlike, enkaz, göçük, acil ambulans
     3: [
         "enkaz", "göçük", "gocuk", "gömülü", "gomulu",
         "nefes alamıyorum", "nefes alamiyorum", "nefes yok",
         "altındayız", "altindayiz", "altındayım", "altindayim",
         "bina çöktü", "bina coktu", "bina yıkıldı", "bina yikildi",
-        "çöktü", "coktu", "sıkıştı", "sikisti",
-        "hava bitiyor", "hava yok",
-        "gömüldük", "gomulduk",
+        "çöktü", "coktu", "sıkıştı", "sikisti", "kurtarın", "kurtarin",
+        "hava bitiyor", "hava yok", "ölüyoruz", "oluyoruz",
+        "gömüldük", "gomulduk", "yardım edin", "yardim edin", "acil yardım",
     ],
-    # HIGH (2) - Ciddi yaralanma, yangın
+    # HIGH (2) - Ciddi yaralanma, yangın, acil tıbbi müdahale
     2: [
-        "yangın", "yangin", "yanıyor", "yaniyor",
-        "kanama", "kan akıyor", "kan akiyor",
-        "bayıldı", "bayildi", "bilinci kapandı",
-        "kalp krizi", "kalp durması",
-        "bıçaklandı", "bicaklandi",
-        "patlama", "patladi",
-        "zehirlenme",
+        "yangın", "yangin", "yanıyor", "yaniyor", "alev",
+        "kanama", "kan akıyor", "kan akiyor", "kan kaybediyor",
+        "bayıldı", "bayildi", "bilinci kapandı", "bilinçsiz",
+        "kalp krizi", "kalp durması", "fenalaştı", "fenalasti",
+        "bıçaklandı", "bicaklandi", "silah", "vuruldu",
+        "patlama", "patladi", "bomba",
+        "zehirlenme", "zehirlendi", "gaz kaçağı",
+        "kırık", "kirik", "kemik", "ağır yaralı", "agir yarali",
     ],
+    # MEDIUM (1) - Aciliyeti daha az durumlar, araç arızası, hafif yaralanma
+    1: [
+        "kaza", "çarpıştı", "carpisti", "trafik kazası",
+        "hafif yaralı", "hafif yarali", "kesik", "kanıyor", "kaniyor",
+        "mahsur", "kaldı", "yolda kaldık", "yolda kaldik",
+        "hastane", "ambulans", "doktor", # (Eğer enkaz/ölüm yoksa)
+        "araba bozuldu", "lastik patladı",
+        "su bastı", "su basti", "sel", "elektrik yok",
+    ],
+    # LOW (0) - Bilgi talebi, genel sorunlar
+    0: [
+        "neredesin", "neredesiniz", "nasılsın", "nasilsin", "iyiyim",
+        "haber ver", "bilgi", "test", "deneme", "yemek", "su lazım", "su lazim",
+        "üşüyoruz", "usuyoruz", "çadır", "cadir", "battaniye",
+    ]
 }
 
 def check_heuristic(text_lower):

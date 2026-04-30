@@ -33,7 +33,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
     ports:
-      - "5433:5432" # Burayı 5433 yaptık
+      - "5434:5432" # Burayı 5434 yaptık (çakışmayı önlemek için)
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
