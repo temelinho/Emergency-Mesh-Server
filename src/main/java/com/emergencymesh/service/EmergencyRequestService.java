@@ -106,7 +106,9 @@ public class EmergencyRequestService {
             }
         }
         EmergencyRequest saved = repository.save(request);
-        return EmergencyRequestDto.Response.fromEntity(saved);
+        EmergencyRequestDto.Response response = EmergencyRequestDto.Response.fromEntity(saved);
+        broadcastAfterCommit(response);
+        return response;
     }
 
     @Transactional

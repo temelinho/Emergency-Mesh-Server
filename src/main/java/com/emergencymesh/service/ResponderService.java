@@ -73,6 +73,16 @@ public class ResponderService {
     }
 
     private void broadcastUpdate() {
-        messagingTemplate.convertAndSend("/topic/responders", getAllResponders());
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        messagingTemplate.convertAndSend("/topic/responders", getAllResponders());
+                    }
+                });
+        } else {
+            messagingTemplate.convertAndSend("/topic/responders", getAllResponders());
+        }
     }
 }
