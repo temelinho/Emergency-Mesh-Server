@@ -27,7 +27,7 @@ TR_CHAR_MAP = str.maketrans({
 
 def normalize_turkish(text):
     if not isinstance(text, str): return ""
-    text = text.lower().replace('İ', 'i').replace('I', 'ı').lower()
+    text = text.replace('İ', 'i').replace('I', 'ı').lower()
     text = re.sub(r'[^\w\s]', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text + " " + text.translate(TR_CHAR_MAP)
@@ -54,6 +54,9 @@ class TurkishTextPreprocessor(BaseEstimator, TransformerMixin):
 app = FastAPI(title="Emergency Mesh AI Triage Service")
 
 # Load model (pipeline includes TurkishTextPreprocessor internally)
+import __main__
+__main__.TurkishTextPreprocessor = TurkishTextPreprocessor
+
 try:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     model_path = os.path.join(BASE_DIR, "emergency_model.pkl")
@@ -70,41 +73,43 @@ class Message(BaseModel):
 # Anahtar kelime tabanlı acil durum tespiti (ML'den önce çalışır)
 
 EMERGENCY_KEYWORDS = {
-    # EMERGENCY (3) - Hayati tehlike, enkaz, göçük, acil ambulans
+    # EMERGENCY (3) - Hayati tehlike, enkaz, göçük, nefes darlığı, ağır kanama
     3: [
-        "enkaz", "göçük", "gocuk", "gömülü", "gomulu",
-        "nefes alamıyorum", "nefes alamiyorum", "nefes yok",
+        "enkaz", "göçük", "gocuk", "gömülü", "gomulu", "yıkıldı", "yikildi",
+        "nefes alamıyorum", "nefes alamiyorum", "nefes yok", "hava bitiyor",
         "altındayız", "altindayiz", "altındayım", "altindayim",
-        "bina çöktü", "bina coktu", "bina yıkıldı", "bina yikildi",
-        "çöktü", "coktu", "sıkıştı", "sikisti", "kurtarın", "kurtarin",
-        "hava bitiyor", "hava yok", "ölüyoruz", "oluyoruz",
-        "gömüldük", "gomulduk", "yardım edin", "yardim edin", "acil yardım",
+        "bina çöktü", "bina coktu", "çöktü", "coktu",
+        "kurtarın", "kurtarin", "ölüyoruz", "oluyoruz",
+        "gömüldük", "gomulduk", "boğuluyorum", "boguluyorum",
+        "ağır yaralı", "agir yarali", "çok kan kaybediyor", "nabız yok", "kalbi durdu",
+        "acil yardım", "acil yardim", "imdat", "yardım edin", "yardim edin"
     ],
-    # HIGH (2) - Ciddi yaralanma, yangın, acil tıbbi müdahale
+    # HIGH (2) - Ciddi yaralanma, yangın, su/gıda ihtiyacı (acil), tıbbi yardım
     2: [
         "yangın", "yangin", "yanıyor", "yaniyor", "alev",
         "kanama", "kan akıyor", "kan akiyor", "kan kaybediyor",
-        "bayıldı", "bayildi", "bilinci kapandı", "bilinçsiz",
-        "kalp krizi", "kalp durması", "fenalaştı", "fenalasti",
-        "bıçaklandı", "bicaklandi", "silah", "vuruldu",
-        "patlama", "patladi", "bomba",
-        "zehirlenme", "zehirlendi", "gaz kaçağı",
-        "kırık", "kirik", "kemik", "ağır yaralı", "agir yarali",
+        "bayıldı", "bayildi", "bilinci kapandı", "bilinçsiz", "fenalaştı",
+        "kalp krizi", "kalp durması", "şeker koması",
+        "patlama", "patladi", "gaz kaçağı", "gaz kacagi",
+        "kırık", "kirik", "kemik", "açık yara",
+        "acil su lazım", "acil su lazim", "su yok", "susuz kaldık",
+        "acil yemek lazım", "acil yemek lazim", "gıda lazım", "gida lazim",
+        "ilaç lazım", "ilac lazim", "insülin", "astım fısfısı"
     ],
-    # MEDIUM (1) - Aciliyeti daha az durumlar, araç arızası, hafif yaralanma
+    # MEDIUM (1) - Hafif yaralanma, yolda kalma, lojistik ihtiyaçlar
     1: [
         "kaza", "çarpıştı", "carpisti", "trafik kazası",
-        "hafif yaralı", "hafif yarali", "kesik", "kanıyor", "kaniyor",
+        "hafif yaralı", "hafif yarali", "kesik", "yaralandım",
         "mahsur", "kaldı", "yolda kaldık", "yolda kaldik",
-        "hastane", "ambulans", "doktor", # (Eğer enkaz/ölüm yoksa)
-        "araba bozuldu", "lastik patladı",
-        "su bastı", "su basti", "sel", "elektrik yok",
+        "hastane", "ambulans", "doktor", "su lazım", "su lazim",
+        "yemek lazım", "yemek lazim", "erzak", "battaniye", "üşüyoruz", "usuyoruz",
+        "elektrik yok", "şarj bitiyor", "sarj bitiyor", "su bastı"
     ],
-    # LOW (0) - Bilgi talebi, genel sorunlar
+    # LOW (0) - Bilgi talebi, selamlaşma, genel durumlar
     0: [
-        "neredesin", "neredesiniz", "nasılsın", "nasilsin", "iyiyim",
-        "haber ver", "bilgi", "test", "deneme", "yemek", "su lazım", "su lazim",
-        "üşüyoruz", "usuyoruz", "çadır", "cadir", "battaniye",
+        "iyiyim", "iyiyiz", "güvendeyim", "guvendeyim", "sorun yok",
+        "nasılsın", "nasilsin", "merhaba", "selam", "naber", "neredesin",
+        "deneme", "test", "bilgi ver", "haber ver"
     ]
 }
 
@@ -119,12 +124,8 @@ def check_heuristic(text_lower):
 
 @app.post("/predict")
 async def predict(message: Message):
+    text_normalized = normalize_turkish(message.text)
     text_lower = message.text.lower().strip()
-    # Türkçe karakter normalizasyonu (yazım hatasız arama için)
-    text_normalized = text_lower
-    for tr_char, ascii_char in [('ı','i'), ('ş','s'), ('ç','c'), ('ğ','g'), ('ö','o'), ('ü','u')]:
-        text_normalized = text_normalized.replace(tr_char, ascii_char)
-    
     combined_text = text_lower + " " + text_normalized
     
     print(f"[AI-LOG] Received: {text_lower}")
