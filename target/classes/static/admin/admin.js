@@ -18,6 +18,12 @@ let charts = {};
 let statusFilter = 'ALL';
 let typeFilter = 'ALL';
 
+// Feed filter & sort
+let feedFilter = 'ALL';
+let feedSort = 'PRIORITY';
+
+const PRIORITY_ORDER = { EMERGENCY: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+
 // Map style
 let mapStyleIndex = 0;
 const MAP_TILES = [
@@ -536,22 +542,59 @@ function updateCharts() {
 }
 
 // ─── ACTIVITY FEED ──────────────────────────────────────────
+function setFeedFilter(value) {
+    feedFilter = value;
+    document.querySelectorAll('.feed-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.feedStatus === value);
+    });
+    renderActivityFeed();
+}
+
+function setFeedSort(value) {
+    feedSort = value;
+    document.querySelectorAll('.feed-sort-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.feedSort === value);
+    });
+    renderActivityFeed();
+}
+
 function renderActivityFeed() {
     const el = document.getElementById('activity-feed');
     if (!el) return;
 
-    const sorted = [...emergencies]
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-        .slice(0, 12);
+    // Apply filter
+    let filtered = feedFilter === 'ALL'
+        ? [...emergencies]
+        : emergencies.filter(e => e.status === feedFilter);
 
-    if (!sorted.length) {
-        el.innerHTML = '<li style="color:var(--text-dim);padding:1rem;text-align:center;">Henüz vaka bulunmuyor.</li>';
+    // Apply sort
+    if (feedSort === 'PRIORITY') {
+        filtered.sort((a, b) => {
+            const pa = PRIORITY_ORDER[(a.priority || 'MEDIUM').toUpperCase()] || 2;
+            const pb = PRIORITY_ORDER[(b.priority || 'MEDIUM').toUpperCase()] || 2;
+            return pb - pa; // HIGH → LOW
+        });
+    } else if (feedSort === 'PRIORITY_ASC') {
+        filtered.sort((a, b) => {
+            const pa = PRIORITY_ORDER[(a.priority || 'MEDIUM').toUpperCase()] || 2;
+            const pb = PRIORITY_ORDER[(b.priority || 'MEDIUM').toUpperCase()] || 2;
+            return pa - pb; // LOW → HIGH
+        });
+    } else {
+        // TIME (default): newest first
+        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    filtered = filtered.slice(0, 20);
+
+    if (!filtered.length) {
+        el.innerHTML = '<li style="color:var(--text-dim);padding:1rem;text-align:center;">Seçili filtrede vaka bulunmuyor.</li>';
         return;
     }
 
     const priorityColors = { EMERGENCY: '#ef4444', HIGH: '#f97316', MEDIUM: '#f59e0b', LOW: '#10b981' };
 
-    el.innerHTML = sorted.map(e => `
+    el.innerHTML = filtered.map(e => `
         <li class="feed-item" onclick="openDetailModal('${e.id}')" style="cursor:pointer;">
             <div class="feed-icon ${(e.type || '').toLowerCase()}">${getTypeEmoji(e.type)}</div>
             <div class="feed-body">
@@ -611,7 +654,7 @@ function renderRequestsTable() {
                 <td>
                     <div style="display:flex;gap:4px;">
                         ${status !== 'RESOLVED' ? `<button class="btn btn-success btn-sm" onclick="resolveEmergency('${r.id}')">✓ Çöz</button>` : ''}
-                        ${status === 'PENDING' ? `<button class="btn btn-primary btn-sm" onclick="showAssignModal('${r.id}')">Ata</button>` : ''}
+                        ${(status === 'PENDING' || status === 'IN_PROGRESS') ? `<button class="btn btn-primary btn-sm" onclick="showAssignModal('${r.id}')">Ata</button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -978,7 +1021,7 @@ function buildEmergencyPopup(e) {
     if (e.status !== 'RESOLVED') {
         actions += `<button class="btn btn-success btn-sm" onclick="resolveEmergency('${e.id}')">✓ Çöz</button>`;
     }
-    if (e.status === 'PENDING') {
+    if (e.status === 'PENDING' || e.status === 'IN_PROGRESS') {
         actions += `<button class="btn btn-primary btn-sm" onclick="showAssignModal('${e.id}')">Ekip Ata</button>`;
     }
     actions += `<button class="btn btn-secondary btn-sm" onclick="openDetailModal('${e.id}')">Detay</button>`;
@@ -1095,6 +1138,15 @@ function openDetailModal(id) {
     const minutesElapsed = (Date.now() - parseUTCDate(e.createdAt).getTime()) / 60000;
     const isSLA = e.status !== 'RESOLVED' && minutesElapsed > 30;
 
+    let cleanDesc = e.description || '';
+    let healthData = '';
+    const healthRegex = /\[SAĞLIK:\s*(.*?)\]/i;
+    const match = cleanDesc.match(healthRegex);
+    if (match) {
+        healthData = match[1];
+        cleanDesc = cleanDesc.replace(healthRegex, '').trim();
+    }
+
     body.innerHTML = `
         <div class="modal-field">
             <div class="modal-field-label">Öncelik</div>
@@ -1114,8 +1166,17 @@ function openDetailModal(id) {
         </div>
         <div class="modal-field full-width">
             <div class="modal-field-label">Açıklama</div>
-            <div class="modal-field-value">${e.description}</div>
+            <div class="modal-field-value">${cleanDesc}</div>
         </div>
+        ${healthData ? `
+        <div class="modal-field full-width" style="background: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; padding: 12px; border-radius: 4px; margin-top: 8px;">
+            <div class="modal-field-label" style="color: #ef4444; display:flex; align-items:center; gap:6px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                TIBBİ BİLGİ (Kritik)
+            </div>
+            <div class="modal-field-value" style="color: #fca5a5; font-weight:600; margin-top:4px;">${healthData}</div>
+        </div>
+        ` : ''}
         <div class="modal-field">
             <div class="modal-field-label">Konum</div>
             <div class="modal-field-value">${e.latitude ? `${e.latitude.toFixed(5)}, ${e.longitude.toFixed(5)}` : 'Bilinmiyor'}</div>
@@ -1138,7 +1199,7 @@ function openDetailModal(id) {
     if (e.status !== 'RESOLVED') {
         actionHtml = `<button class="btn btn-success" onclick="resolveEmergency('${e.id}');closeModal();">✓ Vakayı Çöz</button>` + actionHtml;
     }
-    if (e.status === 'PENDING') {
+    if (e.status === 'PENDING' || e.status === 'IN_PROGRESS') {
         actionHtml = `<button class="btn btn-primary" onclick="showAssignModal('${e.id}');closeModal();">Ekip Ata</button>` + actionHtml;
     }
     actions.innerHTML = actionHtml;
@@ -1247,31 +1308,50 @@ function showAssignModal(requestId) {
         return 0;
     });
 
+    let bestMatchFound = false;
+
     body.innerHTML = sortedResponders.map(r => {
         const isAvailable = r.status === 'AVAILABLE';
         let distanceHtml = '';
+        let isBestMatch = false;
+
         if (emergency && emergency.latitude && r.latitude) {
             const dist = calculateDistance(emergency.latitude, emergency.longitude, r.latitude, r.longitude);
             if (dist !== Infinity) {
-                distanceHtml = `<div style="font-size:0.75rem; color:var(--primary); margin-top:4px;">📍 Yaklaşık ${dist.toFixed(1)} km mesafede</div>`;
+                // Varsayılan hız: Şehir içi ortalama 40 km/s -> Dakikada 0.66 km -> 1 km = 1.5 dk
+                const etaMinutes = Math.max(1, Math.round(dist * 1.5));
+                distanceHtml = `<div style="font-size:0.8rem; color:var(--primary); margin-top:8px; display:flex; align-items:center; gap:6px;">
+                                    <span style="background:rgba(59,130,246,0.1); padding:2px 6px; border-radius:4px;">📍 ${dist.toFixed(1)} km</span>
+                                    <span style="background:rgba(16,185,129,0.1); color:#10b981; padding:2px 6px; border-radius:4px;">⏳ ~${etaMinutes} dk (Tahmini)</span>
+                                </div>`;
+                
+                // Eğer ekip müsaitse ve henüz bir "en iyi eşleşme" bulunamadıysa (liste zaten sıralı olduğu için ilk müsait olan en yakınıdır)
+                if (isAvailable && !bestMatchFound) {
+                    isBestMatch = true;
+                    bestMatchFound = true;
+                }
             }
         }
 
+        const borderStyle = isBestMatch ? 'border: 2px solid #10b981; box-shadow: 0 0 10px rgba(16,185,129,0.2);' : '';
 
         return `
             <div class="responder-card ${isAvailable ? 'available' : 'busy'}" 
                  ${isAvailable ? `onclick="confirmAssign('${requestId}', '${r.id}', '${r.name}')"` : ''}
-                 style="cursor:${isAvailable ? 'pointer' : 'not-allowed'};">
+                 style="cursor:${isAvailable ? 'pointer' : 'not-allowed'}; position:relative; ${borderStyle}">
+                
+                ${isBestMatch ? `<div style="position:absolute; top:-10px; right:10px; background:#10b981; color:#fff; font-size:0.65rem; font-weight:bold; padding:2px 8px; border-radius:10px; box-shadow:0 2px 4px rgba(0,0,0,0.3);">✨ EN İYİ ROTA</div>` : ''}
+                
                 <div class="responder-card-header">
                     <div class="responder-card-icon">${r.type === 'AMBULANCE' ? '🚑' : r.type === 'FIRE_TRUCK' ? '🚒' : r.type === 'POLICE' ? '🚔' : '🚐'}</div>
                     <div class="responder-card-info">
                         <div class="responder-card-name">${r.name}</div>
-                        <div class="responder-card-type">${r.type}</div>
+                        <div class="responder-card-type">${getResponderTypeLabel(r.type)}</div>
                     </div>
                     <span class="status-badge ${isAvailable ? 'badge-resolved' : 'badge-pending'}">${isAvailable ? 'MÜSAİT' : 'MEŞGUL'}</span>
                 </div>
                 ${distanceHtml}
-                ${r.city || r.district ? `<div class="responder-card-loc" style="margin-top: 4px;">🌍 ${r.city || '—'} / ${r.district || '—'}</div>` : ''}
+                ${r.city || r.district ? `<div class="responder-card-loc" style="margin-top: 6px; font-size:0.75rem; color:var(--text-dim);">🌍 ${r.city || '—'} / ${r.district || '—'}</div>` : ''}
             </div>
         `;
     }).join('');
@@ -1298,10 +1378,19 @@ function closeAssignModal() {
 
 async function assignResponder(reqId, resId) {
     try {
-        await fetch(`${API_BASE}/emergency/${reqId}/assign/${resId}`, { method: 'PUT' });
-        map.closePopup();
-        fetchAllData();
-    } catch (e) { console.error('Atama başarısız:', e); }
+        const resp = await fetch(`${API_BASE}/emergency/${reqId}/assign/${resId}`, { method: 'PUT' });
+        if (resp.ok) {
+            map.closePopup();
+            showToast('Başarılı', 'Ekip başarıyla atandı.', 'info');
+            fetchAllData();
+        } else {
+            const errTxt = await resp.text();
+            showToast('Atama Başarısız', errTxt || 'Sunucu hatası', 'warning');
+        }
+    } catch (e) { 
+        console.error('Atama başarısız:', e); 
+        showToast('Atama Başarısız', 'Ağ bağlantısı koptu', 'warning');
+    }
 }
 
 // ─── UTILITIES ──────────────────────────────────────────────

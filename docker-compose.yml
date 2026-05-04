@@ -2,7 +2,7 @@ services:
   app:
     build: .
     ports:
-      - "8080:8080"
+      - "80:8080"
     environment:
       - DB_URL=jdbc:postgresql://db:5432/emergencymesh?useUnicode=true&characterEncoding=UTF-8
       - DB_USERNAME=postgres
