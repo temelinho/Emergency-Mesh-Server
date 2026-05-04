@@ -17,7 +17,7 @@ public class RawEmergencyRequestService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveRawRequest(EmergencyRequestDto.Create requestDto) {
         RawEmergencyRequest raw = new RawEmergencyRequest();
-        raw.setUserId(requestDto.getUserId());
+        raw.setUserId(requestDto.getUserId() != null ? requestDto.getUserId().toString() : null);
         raw.setType(requestDto.getType() != null ? requestDto.getType().name() : null);
         raw.setDescription(requestDto.getDescription());
         raw.setLatitude(requestDto.getLatitude());
@@ -29,7 +29,7 @@ public class RawEmergencyRequestService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveRawRequestFromTag(java.util.UUID userId, String type, String content, Double lat, Double lng) {
         RawEmergencyRequest raw = new RawEmergencyRequest();
-        raw.setUserId(userId);
+        raw.setUserId(userId != null ? userId.toString() : null);
         raw.setType(type);
         raw.setDescription("TAG: " + content);
         raw.setLatitude(lat);

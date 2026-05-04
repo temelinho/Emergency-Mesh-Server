@@ -130,4 +130,8 @@ public class UserService {
                 .map(UserDto.Response::fromEntity)
                 .collect(java.util.stream.Collectors.toList());
     }
+
+    public UserRepository getUserRepository() {
+        return userRepository;
+    }
 }

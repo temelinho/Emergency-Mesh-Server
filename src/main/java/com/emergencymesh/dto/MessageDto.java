@@ -16,7 +16,7 @@ public class MessageDto {
         private Long originalCreatedAt; // Optional (original timestamp from offline node)
 
         @NotNull(message = "Sender ID is required")
-        private UUID senderId;
+        private String senderId;
 
         @NotBlank(message = "Content cannot be empty")
         private String content;

@@ -59,9 +59,21 @@ public class MessageService {
 
         // 2. Kullanıcıyı bul; bulunamazsa fallback (mesh_anonim) ile devam et
         User sender;
+        UUID senderUuid = null;
         try {
-            sender = userService.getUserEntityById(request.getSenderId());
-        } catch (ResourceNotFoundException e) {
+            if (request.getSenderId() != null) {
+                senderUuid = UUID.fromString(request.getSenderId());
+            }
+        } catch (Exception ignored) {}
+
+        if (senderUuid != null) {
+            // NOT: UserService yerine doğrudan repository kullanıyoruz ki 'Not Found' hatası transaction'ı zehirlemesin
+            sender = userService.getUserRepository().findById(senderUuid).orElse(null);
+        } else {
+            sender = null;
+        }
+
+        if (sender == null) {
             sender = userService.getFallbackUser();
         }
 
@@ -181,7 +193,8 @@ public class MessageService {
                 .map(MessageDto.Response::fromEntity);
     }
 
-    @Transactional
+    // Batch işleminde bir mesajın hatası diğerlerini bozmasın diye @Transactional'ı kaldırdık.
+    // Her bir sendMessage çağrısı kendi içinde @Transactional olduğu için bağımsız commit edilir.
     public void sendMessages(java.util.List<MessageDto.Request> requests) {
         if (requests == null) return;
         System.out.println("[BATCH] Received batch of " + requests.size() + " messages");

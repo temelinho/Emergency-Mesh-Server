@@ -23,7 +23,7 @@ public class RawEmergencyRequest {
     private UUID id;
 
     // No constraints to avoid failing silently
-    private UUID userId;
+    private String userId;
 
     private String type;
 
