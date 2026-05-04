@@ -17,6 +17,15 @@ public final class MessageContentNormalizer {
     public static ParsedEmergency parse(String rawContent) {
         if (rawContent == null) rawContent = "";
         String trimmed = rawContent.trim();
+
+        // Android uygulaması mesajları "Username|||içerik" formatında gönderir.
+        // Tag algılama için önce bu mührü soyuyoruz.
+        if (trimmed.contains("|||")) {
+            String[] parts = trimmed.split("\\|\\|\\|", 2);
+            if (parts.length == 2) {
+                trimmed = parts[1].trim();
+            }
+        }
         ParsedEmergency result = new ParsedEmergency();
 
         // 1) !1, !2, !3... etiket formatı (mevcut)
