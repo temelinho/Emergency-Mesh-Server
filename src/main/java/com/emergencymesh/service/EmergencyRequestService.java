@@ -92,6 +92,12 @@ public class EmergencyRequestService {
                 .map(EmergencyRequestDto.Response::fromEntity);
     }
 
+    @Transactional(readOnly = true)
+    public Page<EmergencyRequestDto.Response> getRequestsByResponder(UUID responderId, Pageable pageable) {
+        return repository.findByAssignedResponderIdOrderByCreatedAtDesc(responderId, pageable)
+                .map(EmergencyRequestDto.Response::fromEntity);
+    }
+
     @Transactional
     public EmergencyRequestDto.Response updateStatus(UUID id, EmergencyRequest.RequestStatus newStatus) {
         EmergencyRequest request = repository.findById(id)

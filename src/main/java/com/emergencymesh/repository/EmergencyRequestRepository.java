@@ -20,4 +20,8 @@ public interface EmergencyRequestRepository extends JpaRepository<EmergencyReque
     Page<EmergencyRequest> findByStatusWithUser(EmergencyRequest.RequestStatus status, Pageable pageable);
 
     Page<EmergencyRequest> findByUserIdOrderByCreatedAtDesc(UUID userId, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query(value = "SELECT e FROM EmergencyRequest e JOIN FETCH e.user WHERE e.assignedResponder.id = :responderId",
+            countQuery = "SELECT count(e) FROM EmergencyRequest e WHERE e.assignedResponder.id = :responderId")
+    Page<EmergencyRequest> findByAssignedResponderIdOrderByCreatedAtDesc(UUID responderId, Pageable pageable);
 }

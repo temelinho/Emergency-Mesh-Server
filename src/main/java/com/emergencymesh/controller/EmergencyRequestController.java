@@ -50,4 +50,11 @@ public class EmergencyRequestController {
             @PathVariable UUID responderId) {
         return ResponseEntity.ok(service.assignResponder(id, responderId));
     }
+
+    @GetMapping("/responder/{responderId}")
+    public ResponseEntity<Page<EmergencyRequestDto.Response>> getRequestsByResponder(
+            @PathVariable UUID responderId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(service.getRequestsByResponder(responderId, pageable));
+    }
 }
