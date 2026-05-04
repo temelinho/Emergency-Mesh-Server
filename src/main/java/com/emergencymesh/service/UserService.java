@@ -20,6 +20,17 @@ public class UserService {
 
     @Transactional
     public UserDto.Response registerUser(UserDto.Request request) {
+        // Kullanıcı adı benzersiz olmalı — başka bir telefon numarası kullanıyorsa reddet
+        if (userRepository.existsByUsername(request.getUsername())) {
+            // Aynı telefon numarasıyla kayıt güncellemesi ise izin ver
+            boolean samePhone = userRepository.findByUsername(request.getUsername())
+                    .map(u -> u.getPhoneNumber().equals(request.getPhoneNumber()))
+                    .orElse(false);
+            if (!samePhone) {
+                throw new RuntimeException("Bu kullanıcı adı zaten alınmış. Lütfen başka bir kullanıcı adı seçin.");
+            }
+        }
+
         // Check if user already exists with same phone number
         User existingUser = userRepository.findByPhoneNumber(request.getPhoneNumber()).orElse(null);
 
@@ -70,6 +81,15 @@ public class UserService {
             userRepository.findByPhoneNumber(request.getPhoneNumber()).ifPresent(existingUser -> {
                 if (!existingUser.getId().equals(user.getId())) {
                     throw new RuntimeException("Bu telefon numarası zaten kullanımda.");
+                }
+            });
+        }
+
+        // Check if username is changing and already taken by another user
+        if (!user.getUsername().equals(request.getUsername())) {
+            userRepository.findByUsername(request.getUsername()).ifPresent(existingUser -> {
+                if (!existingUser.getId().equals(user.getId())) {
+                    throw new RuntimeException("Bu kullanıcı adı zaten alınmış. Lütfen başka bir kullanıcı adı seçin.");
                 }
             });
         }
