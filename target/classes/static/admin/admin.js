@@ -237,7 +237,7 @@ async function fetchAllData() {
 async function fetchStatsAndEmergencies() {
     console.log("[DATA] Fetching emergencies from API...");
     try {
-        const res = await fetch(`${API_BASE}/emergency?size=200`);
+        const res = await fetch(`${API_BASE}/emergency?size=5000`);
         const data = await res.json();
 
         const apiContent = data.content || [];
