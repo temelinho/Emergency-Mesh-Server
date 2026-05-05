@@ -27,6 +27,12 @@ public class MessageService {
     private final EmergencyRequestRepository emergencyRequestRepository;
     private final RawEmergencyRequestService rawService;
     private final AiTriageClient aiTriageClient;
+    private MessageService self;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setSelf(@org.springframework.context.annotation.Lazy MessageService self) {
+        this.self = self;
+    }
 
     @Transactional
     public MessageDto.Response sendMessage(MessageDto.Request request) {
@@ -85,6 +91,8 @@ public class MessageService {
             message.setTimestamp(java.time.LocalDateTime.ofInstant(
                 java.time.Instant.ofEpochMilli(request.getOriginalCreatedAt()), 
                 java.time.ZoneId.of("UTC")));
+        } else {
+            message.setTimestamp(java.time.LocalDateTime.now(java.time.ZoneId.of("UTC")));
         }
         message.setSender(sender);
 
@@ -128,6 +136,8 @@ public class MessageService {
                 emergencyReq.setCreatedAt(java.time.LocalDateTime.ofInstant(
                     java.time.Instant.ofEpochMilli(request.getOriginalCreatedAt()), 
                     java.time.ZoneId.of("UTC")));
+            } else {
+                emergencyReq.setCreatedAt(java.time.LocalDateTime.now(java.time.ZoneId.of("UTC")));
             }
             emergencyReq.setUser(sender);
             emergencyReq.setType(parsed.type);
@@ -139,7 +149,10 @@ public class MessageService {
                 emergencyReq.setLongitude(request.getLongitude());
             }
             EmergencyRequest savedReq = emergencyRequestRepository.save(emergencyReq);
+            System.out.println("[SERVICE] Created EmergencyRequest ID: " + savedReq.getId() + " for sender: " + sender.getUsername());
             erResponseFinal = com.emergencymesh.dto.EmergencyRequestDto.Response.fromEntity(savedReq);
+        } else {
+            System.out.println("[SERVICE] Message processed but NOT marked as emergency. Content: " + request.getContent());
         }
 
         // Notify admins via WebSocket topic about the message
@@ -201,7 +214,7 @@ public class MessageService {
         for (int i = 0; i < requests.size(); i++) {
             MessageDto.Request request = requests.get(i);
             try {
-                sendMessage(request);
+                self.sendMessage(request);
                 System.out.println("[BATCH] Successfully processed message " + (i + 1) + "/" + requests.size() + (request.getContent() != null ? " (Content: " + request.getContent() + ")" : ""));
             } catch (Exception e) {
                 System.err.println("[BATCH] Error processing message " + (i + 1) + ": " + e.getMessage());

@@ -26,10 +26,15 @@ public class MessageController {
     }
 
     @PostMapping("/batch")
-    public ResponseEntity<Void> sendMessages(@Valid @RequestBody java.util.List<MessageDto.Request> requests) {
+    public ResponseEntity<Void> sendMessages(@RequestBody java.util.List<MessageDto.Request> requests) {
         System.out.println("[CONTROLLER] Received batch request with " + (requests != null ? requests.size() : 0) + " items");
+        if (requests != null) {
+            for (MessageDto.Request req : requests) {
+                System.out.println("[CONTROLLER] Message Item: Sender=" + req.getSenderId() + ", Content=" + req.getContent());
+            }
+        }
         messageService.sendMessages(requests);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/user/{userId}")
